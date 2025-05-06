@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turkey Apocalypse</title>
+    <style>
+        body {
+            background-color: #222;
+            color: #ff6600;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #ff3300;
+            text-shadow: 2px 2px 4px #000;
+            margin-bottom: 10px;
+        }
+        canvas {
+            border: 3px solid #ff6600;
+            border-radius: 5px;
+            box-shadow: 0 0 15px #ff6600;
+            background: #000;
+            max-width: 100%;
+        }
+        .game-container {
+            margin: 0 auto;
+            max-width: 800px;
+        }
+        .instructions {
+            background-color: rgba(0,0,0,0.6);
+            border: 1px solid #ff6600;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 15px 0;
+            color: #fff;
+            text-align: left;
+        }
+        .key {
+            background-color: #333;
+            border: 1px solid #555;
+            border-radius: 3px;
+            padding: 2px 5px;
+            font-family: monospace;
+        }
+        button {
+            background-color: #ff6600;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            background-color: #ff3300;
+            transform: scale(1.05);
+            box-shadow: 0 0 10px #ff6600;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🦃 TURKEY APOCALYPSE 🦃</h1>
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+        
+        <div class="instructions">
+            <h3>How to Play:</h3>
+            <p>The turkey apocalypse is upon us! Survive as long as possible against waves of mutant turkeys.</p>
+            <p><strong>Controls:</strong></p>
+            <ul>
+                <li><span class="key">↑</span> or <span class="key">W</span> - Move Up</li>
+                <li><span class="key">↓</span> or <span class="key">S</span> - Move Down</li>
+                <li><span class="key">Space</span> or <span class="key">F</span> - Shoot</li>
+                <li><span class="key">R</span> - Restart (after game over)</li>
+            </ul>
+            <p><strong>Tips:</strong></p>
+            <ul>
+                <li>Conserve ammo - you only get more after completing a wave</li>
+                <li>Each wave brings stronger and faster turkeys</li>
+                <li>Some turkeys take multiple hits to defeat</li>
+            </ul>
+        </div>
+        
+        <button onclick="runTurkeyApocalypse()">START GAME</button>
+    </div>
+
+    <script>
+function runTurkeyApocalypse() {
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 800;
+    canvas.height = 500;
+  
+    // Game variables
+    const player = {
+      x: 50,
+      y: 250,
+      width: 40,
+      height: 60,
+      speed: 5,
+      health: 100,
+      ammo: 30,
+      score: 0,
+      isMovingUp: false,
+      isMovingDown: false,
+      isShooting: false,
+      lastShot: 0
+    };
+  
+    let gameOver = false;
+    let turkeys = [];
+    let bullets = [];
+    let particles = [];
+    let spawnRate = 120; // Lower = more turkeys
+    let spawnCounter = 0;
+    let wave = 1;
+    let turkeySpeed = 2;
+    
+    // Images
+    const images = {
+      player: new Image(),
+      turkey: new Image(),
+      background: new Image()
+    };
+  
+    images.player.src = "data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDAgNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3QgeD0iMTAiIHk9IjUiIHdpZHRoPSIyMCIgaGVpZ2h0PSIzMCIgZmlsbD0iIzU1NSIvPjxjaXJjbGUgY3g9IjIwIiBjeT0iMTUiIHI9IjEwIiBmaWxsPSIjODg4Ii8+PHJlY3QgeD0iNSIgeT0iMjUiIHdpZHRoPSIzMCIgaGVpZ2h0PSIxMCIgZmlsbD0iIzc3NyIvPjxyZWN0IHg9IjE1IiB5PSIzNSIgd2lkdGg9IjEwIiBoZWlnaHQ9IjIwIiBmaWxsPSIjNjY2Ii8+PHJlY3QgeD0iMzAiIHk9IjE3IiB3aWR0aD0iMTAiIGhlaWdodD0iNSIgZmlsbD0iIzMzMyIvPjwvc3ZnPg==";
+    images.turkey.src = "data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNDAgNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGVsbGlwc2UgY3g9IjIwIiBjeT0iMjUiIHJ4PSIxNSIgcnk9IjEyIiBmaWxsPSIjOTk1NTAwIi8+PGNpcmNsZSBjeD0iMzAiIGN5PSIxNSIgcj0iNyIgZmlsbD0iI2E2NjEwNSIvPjxjaXJjbGUgY3g9IjMyIiBjeT0iMTMiIHI9IjIiIGZpbGw9IiNmZmZmZmYiLz48cG9seWdvbiBwb2ludHM9IjMzLDEyIDM4LDEwIDM0LDE1IiBmaWxsPSIjZmY0NDAwIi8+PHJlY3QgeD0iMTAiIHk9IjMwIiB3aWR0aD0iNSIgaGVpZ2h0PSIxMCIgZmlsbD0iI2NjNjYwMCIvPjxyZWN0IHg9IjI1IiB5PSIzMCIgd2lkdGg9IjUiIGhlaWdodD0iMTAiIGZpbGw9IiNjYzY2MDAiLz48cG9seWdvbiBwb2ludHM9IjE1LDI1IDUsNSAxMCwxMCAxNSwyMCIgZmlsbD0iI2ZmMDAwMCIgZmlsbC1vcGFjaXR5PSIwLjciLz48L3N2Zz4=";
+    images.background.src = "data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgODAwIDUwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cmFkaWFsR3JhZGllbnQgaWQ9InNreUdyYWQiIGN4PSI1MCUiIGN5PSIxMCUiIHI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM2MzAwMDAiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMzMTAwMDAiLz48L3JhZGlhbEdyYWRpZW50PjwvZGVmcz48cmVjdCB4PSIwIiB5PSIwIiB3aWR0aD0iODAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0idXJsKCNza3lHcmFkKSIvPjxwYXRoIGQ9Ik0wLDQwMCBMMTAwLDQwMCBMMTUwLDM4MCBMMjgwLDQyMCBMNDUwLDM4MCBMNTAwLDQwMCBMNjUwLDM3MCBMNzUwLDQwMCBMODAwLDQwMCBMODAwLDUwMCBMMCw1MDAgWiIgZmlsbD0iIzU0MzgzOCIvPjxjaXJjbGUgY3g9IjY1MCIgY3k9IjgwIiByPSI0MCIgZmlsbD0iI2ZmNDQwMCIgZmlsbC1vcGFjaXR5PSIwLjciLz48L3N2Zz4=";
+  
+    // Sound effects (simple beeps with AudioContext)
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
+    
+    function playSound(frequency, duration, type = 'square') {
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      oscillator.type = type;
+      oscillator.frequency.value = frequency;
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      oscillator.start();
+      gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+      oscillator.stop(audioCtx.currentTime + duration);
+    }
+  
+    function shootSound() {
+      playSound(220, 0.1);
+    }
+    
+    function hitSound() {
+      playSound(440, 0.15, 'sine');
+    }
+    
+    function deathSound() {
+      playSound(110, 0.5, 'sawtooth');
+    }
+  
+    // Control handlers
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowUp' || e.key === 'w') player.isMovingUp = true;
+      if (e.key === 'ArrowDown' || e.key === 's') player.isMovingDown = true;
+      if (e.key === ' ' || e.key === 'f') player.isShooting = true;
+      if (e.key === 'r' && gameOver) resetGame();
+    });
+  
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowUp' || e.key === 'w') player.isMovingUp = false;
+      if (e.key === 'ArrowDown' || e.key === 's') player.isMovingDown = false;
+      if (e.key === ' ' || e.key === 'f') player.isShooting = false;
+    });
+  
+    function resetGame() {
+      player.health = 100;
+      player.ammo = 30;
+      player.score = 0;
+      player.x = 50;
+      player.y = 250;
+      turkeys = [];
+      bullets = [];
+      particles = [];
+      wave = 1;
+      turkeySpeed = 2;
+      spawnRate = 120;
+      gameOver = false;
+      gameLoop();
+    }
+  
+    function spawnTurkey() {
+      const size = 30 + Math.random() * 20;
+      const health = Math.ceil(wave / 2) + 1;
+      turkeys.push({
+        x: canvas.width + Math.random() * 100,
+        y: Math.random() * (canvas.height - 100) + 50,
+        width: size,
+        height: size,
+        speed: turkeySpeed * (0.7 + Math.random() * 0.6),
+        health: health,
+        damage: Math.ceil(wave / 3) + 1,
+        wobble: Math.random() * 2
+      });
+    }
+  
+    function updatePlayer() {
+      if (player.isMovingUp) player.y -= player.speed;
+      if (player.isMovingDown) player.y += player.speed;
+      
+      // Keep player on screen
+      if (player.y < 0) player.y = 0;
+      if (player.y > canvas.height - player.height) player.y = canvas.height - player.height;
+      
+      // Handle shooting
+      const now = Date.now();
+      if (player.isShooting && player.ammo > 0 && now - player.lastShot > 300) {
+        bullets.push({
+          x: player.x + player.width,
+          y: player.y + player.height / 2,
+          width: 10,
+          height: 4,
+          speed: 10
+        });
+        player.ammo--;
+        player.lastShot = now;
+        shootSound();
+      }
+    }
+  
+    function updateTurkeys() {
+      // Spawn new turkeys
+      spawnCounter++;
+      if (spawnCounter >= spawnRate) {
+        spawnTurkey();
+        spawnCounter = 0;
+      }
+      
+      // Update existing turkeys
+      for (let i = turkeys.length - 1; i >= 0; i--) {
+        const turkey = turkeys[i];
+        turkey.x -= turkey.speed;
+        turkey.y += Math.sin(Date.now() / 500 + turkey.wobble) * 1.5;
+        
+        // Check if turkey hit player
+        if (
+          turkey.x < player.x + player.width &&
+          turkey.x + turkey.width > player.x &&
+          turkey.y < player.y + player.height &&
+          turkey.y + turkey.height > player.y
+        ) {
+          player.health -= turkey.damage;
+          createParticles(player.x + player.width/2, player.y + player.height/2, 10, '#ff0000');
+          turkeys.splice(i, 1);
+          hitSound();
+          continue;
+        }
+        
+        // Remove turkeys that moved off screen
+        if (turkey.x + turkey.width < 0) {
+          turkeys.splice(i, 1);
+        }
+      }
+    }
+  
+    function updateBullets() {
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        const bullet = bullets[i];
+        bullet.x += bullet.speed;
+        
+        // Check bullet collisions with turkeys
+        let hit = false;
+        for (let j = turkeys.length - 1; j >= 0; j--) {
+          const turkey = turkeys[j];
+          if (
+            bullet.x < turkey.x + turkey.width &&
+            bullet.x + bullet.width > turkey.x &&
+            bullet.y < turkey.y + turkey.height &&
+            bullet.y + bullet.height > turkey.y
+          ) {
+            turkey.health--;
+            if (turkey.health <= 0) {
+              createParticles(turkey.x + turkey.width/2, turkey.y + turkey.height/2, 20, '#995500');
+              player.score += 10 * Math.ceil(wave/2);
+              turkeys.splice(j, 1);
+              deathSound();
+            } else {
+              createParticles(turkey.x + turkey.width/2, turkey.y + turkey.height/2, 5, '#cc6600');
+              hitSound();
+            }
+            hit = true;
+            break;
+          }
+        }
+        
+        // Remove bullet if it hit something or moved off screen
+        if (hit || bullet.x > canvas.width) {
+          bullets.splice(i, 1);
+        }
+      }
+    }
+  
+    function createParticles(x, y, amount, color) {
+      for (let i = 0; i < amount; i++) {
+        particles.push({
+          x: x,
+          y: y,
+          size: Math.random() * 5 + 1,
+          speedX: (Math.random() - 0.5) * 5,
+          speedY: (Math.random() - 0.5) * 5,
+          color: color,
+          life: 30 + Math.random() * 20
+        });
+      }
+    }
+  
+    function updateParticles() {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.speedX;
+        p.y += p.speedY;
+        p.life--;
+        
+        if (p.life <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+    }
+  
+    function checkWave() {
+      // Increase difficulty when player reaches score thresholds
+      const newWave = Math.floor(player.score / 200) + 1;
+      if (newWave > wave) {
+        wave = newWave;
+        turkeySpeed += 0.5;
+        spawnRate = Math.max(30, spawnRate - 15);
+        player.ammo += 15; // Reward with ammo
+        player.health = Math.min(100, player.health + 10); // Reward with some health
+        
+        // Visual notification
+        createParticles(canvas.width/2, canvas.height/2, 50, '#ffffff');
+      }
+    }
+  
+    function checkGameOver() {
+      if (player.health <= 0) {
+        gameOver = true;
+      }
+    }
+  
+    function drawBackground() {
+      ctx.drawImage(images.background, 0, 0, canvas.width, canvas.height);
+    }
+  
+    function drawPlayer() {
+      ctx.drawImage(images.player, player.x, player.y, player.width, player.height);
+    }
+  
+    function drawTurkeys() {
+      turkeys.forEach(turkey => {
+        ctx.drawImage(images.turkey, turkey.x, turkey.y, turkey.width, turkey.height);
+        
+        // Health bar for turkeys
+        const healthBarWidth = turkey.width;
+        const healthPercent = turkey.health / (Math.ceil(wave / 2) + 1);
+        
+        ctx.fillStyle = '#555';
+        ctx.fillRect(turkey.x, turkey.y - 10, healthBarWidth, 5);
+        ctx.fillStyle = '#f00';
+        ctx.fillRect(turkey.x, turkey.y - 10, healthBarWidth * healthPercent, 5);
+      });
+    }
+  
+    function drawBullets() {
+      ctx.fillStyle = '#ffff00';
+      bullets.forEach(bullet => {
+        ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+      });
+    }
+  
+    function drawParticles() {
+      particles.forEach(p => {
+        ctx.globalAlpha = p.life / 50;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    }
+  
+    function drawHUD() {
+      // Health bar
+      const healthBarWidth = 200;
+      const healthPercent = player.health / 100;
+      
+      ctx.fillStyle = '#555';
+      ctx.fillRect(20, 20, healthBarWidth, 20);
+      
+      if (player.health > 60) ctx.fillStyle = '#0f0';
+      else if (player.health > 30) ctx.fillStyle = '#ff0';
+      else ctx.fillStyle = '#f00';
+      
+      ctx.fillRect(20, 20, healthBarWidth * healthPercent, 20);
+      
+      ctx.fillStyle = '#fff';
+      ctx.font = '16px Arial';
+      ctx.fillText(`HEALTH: ${player.health}`, 80, 36);
+      
+      // Ammo
+      ctx.fillStyle = '#fff';
+      ctx.fillText(`AMMO: ${player.ammo}`, 20, 70);
+      
+      // Score
+      ctx.fillText(`SCORE: ${player.score}`, canvas.width - 150, 30);
+      
+      // Wave
+      ctx.fillText(`WAVE: ${wave}`, canvas.width - 150, 60);
+      
+      // Turkey count
+      ctx.fillText(`TURKEYS: ${turkeys.length}`, canvas.width - 150, 90);
+    }
+  
+    function drawGameOver() {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.fillStyle = '#ff0000';
+      ctx.font = '48px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 40);
+      
+      ctx.fillStyle = '#fff';
+      ctx.font = '24px Arial';
+      ctx.fillText(`Final Score: ${player.score}`, canvas.width / 2, canvas.height / 2 + 10);
+      ctx.fillText(`Wave: ${wave}`, canvas.width / 2, canvas.height / 2 + 50);
+      ctx.fillText('Press R to restart', canvas.width / 2, canvas.height / 2 + 100);
+      
+      ctx.textAlign = 'left';
+    }
+  
+    function drawStartInstructions() {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.fillStyle = '#ff6600';
+      ctx.font = '40px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('TURKEY APOCALYPSE', canvas.width / 2, canvas.height / 2 - 80);
+      
+      ctx.fillStyle = '#fff';
+      ctx.font = '20px Arial';
+      ctx.fillText('Controls:', canvas.width / 2, canvas.height / 2 - 20);
+      ctx.fillText('↑/W - Move Up', canvas.width / 2, canvas.height / 2 + 10);
+      ctx.fillText('↓/S - Move Down', canvas.width / 2, canvas.height / 2 + 40);
+      ctx.fillText('SPACE/F - Shoot', canvas.width / 2, canvas.height / 2 + 70);
+      ctx.fillText('Press any key to start', canvas.width / 2, canvas.height / 2 + 120);
+      
+      ctx.textAlign = 'left';
+    }
+  
+    let gameStarted = false;
+    document.addEventListener('keydown', () => {
+      if (!gameStarted) {
+        gameStarted = true;
+        gameLoop();
+      }
+    });
+  
+    function gameLoop() {
+      if (gameOver) {
+        drawBackground();
+        drawPlayer();
+        drawTurkeys();
+        drawBullets();
+        drawParticles();
+        drawHUD();
+        drawGameOver();
+        return;
+      }
+      
+      // Update game state
+      updatePlayer();
+      updateTurkeys();
+      updateBullets();
+      updateParticles();
+      checkWave();
+      checkGameOver();
+      
+      // Draw everything
+      drawBackground();
+      drawPlayer();
+      drawTurkeys();
+      drawBullets();
+      drawParticles();
+      drawHUD();
+      
+      requestAnimationFrame(gameLoop);
+    }
+  
+    // Show instructions first
+    drawStartInstructions();
+  }    </script>
+</body>
+</html>
